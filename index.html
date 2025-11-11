@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-R">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomo-Do</title>
+    <style>
+        /* Styles are identical to the previous version */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 40px;
+            min-height: 100vh;
+            gap: 40px;
+            flex-wrap: wrap; /* Added for better responsiveness */
+        }
+        h1, h2 { text-align: center; color: #2a2a2a; }
+        .container {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            padding: 25px;
+            width: 380px;
+            min-width: 300px; /* Added for smaller screens */
+        }
+        /* Pomodoro Timer */
+        #pomodoro-timer { text-align: center; }
+        #timer-display { font-size: 6rem; font-weight: 200; margin: 20px 0; color: #d95550; }
+        #timer-controls button { background-color: transparent; border: 2px solid #555; border-radius: 25px; color: #555; cursor: pointer; font-size: 1rem; padding: 10px 20px; margin: 5px; transition: all 0.2s ease; }
+        #timer-controls button:hover { background-color: #555; color: white; }
+        #timer-controls button#start.running { background-color: #d95550; border-color: #d95550; color: white; }
+        #mode-buttons button { background: #f0f0f0; border: none; border-radius: 6px; padding: 8px 12px; margin: 5px; cursor: pointer; font-weight: 500; }
+        #mode-buttons button.active { background-color: #d95550; color: white; }
+        /* To-Do List */
+        #todo-form { display: flex; margin-bottom: 20px; }
+        #todo-input { flex-grow: 1; border: 2px solid #ddd; border-radius: 8px; padding: 12px; font-size: 1rem; }
+        #todo-form button { background-color: #50a3d9; border: none; border-radius: 8px; color: white; padding: 0 20px; margin-left: 10px; cursor: pointer; font-weight: 600; }
+        #todo-list { list-style-type: none; padding: 0; }
+        #todo-list li { display: flex; align-items: center; background: #f9f9f9; padding: 12px; border-radius: 6px; margin-bottom: 8px; word-break: break-all; }
+        #todo-list li.completed span { text-decoration: line-through; color: #999; }
+        #todo-list li span { flex-grow: 1; cursor: pointer; }
+        #todo-list li .delete-btn { background: none; border: none; color: #d95550; cursor: pointer; font-size: 1.1rem; font-weight: bold; padding: 5px; }
+    </style>
+</head>
+<body>
+
+    <!-- Pomodoro Timer -->
+    <div class="container">
+        <div id="pomodoro-timer">
+            <h1>Pomodoro</h1>
+            <div id="mode-buttons">
+                <button class="mode-btn active" data-mode="work">Work</button>
+                <button class="mode-btn" data-mode="shortBreak">Short Break</button>
+                <button class="mode-btn" data-mode="longBreak">Long Break</button>
+            </div>
+            <div id="timer-display">25:00</div>
+            <div id="timer-controls">
+                <button id="start">Start</button>
+                <button id="reset">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- To-Do List -->
+    <div class="container">
+        <div id="todo-app">
+            <h2>To-Do List</h2>
+            <form id="todo-form">
+                <input type="text" id="todo-input" placeholder="Add a new task..." required>
+                <button type="submit">Add</button>
+            </form>
+            <ul id="todo-list">
+                <!-- Tasks will be loaded here from the backend -->
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- POMODORO TIMER (No changes, frontend only) ---
+            
+            const timer = {
+                modes: { work: 25, shortBreak: 5, longBreak: 15 },
+                currentMode: 'work',
+                isRunning: false,
+                remainingTime: { totalSeconds: 25 * 60, minutes: 25, seconds: 0 },
+                interval: null
+            };
+            const display = document.getElementById('timer-display');
+            const startBtn = document.getElementById('start');
+            const resetBtn = document.getElementById('reset');
+            const modeButtons = document.querySelectorAll('.mode-btn');
+
+            function updateDisplay() {
+                const minutes = String(timer.remainingTime.minutes).padStart(2, '0');
+                const seconds = String(timer.remainingTime.seconds).padStart(2, '0');
+                display.textContent = `${minutes}:${seconds}`;
+                document.title = `${minutes}:${seconds} - ${timer.currentMode}`;
+            }
+
+            function setMode(newMode) {
+                timer.currentMode = newMode;
+                timer.isRunning = false;
+                clearInterval(timer.interval);
+                timer.remainingTime.totalSeconds = timer.modes[newMode] * 60;
+                timer.remainingTime.minutes = Math.floor(timer.remainingTime.totalSeconds / 60);
+                timer.remainingTime.seconds = timer.remainingTime.totalSeconds % 60;
+                modeButtons.forEach(btn => btn.classList.remove('active'));
+                document.querySelector(`[data-mode="${newMode}"]`).classList.add('active');
+                startBtn.textContent = 'Start';
+                startBtn.classList.remove('running');
+                updateDisplay();
+            }
+
+            function startTimer() {
+                if (timer.isRunning) {
+                    clearInterval(timer.interval);
+                    timer.isRunning = false;
+                    startBtn.textContent = 'Start';
+                    startBtn.classList.remove('running');
+                } else {
+                    timer.isRunning = true;
+                    startBtn.textContent = 'Pause';
+                    startBtn.classList.add('running');
+                    timer.interval = setInterval(() => {
+                        timer.remainingTime.totalSeconds--;
+                        timer.remainingTime.minutes = Math.floor(timer.remainingTime.totalSeconds / 60);
+                        timer.remainingTime.seconds = timer.remainingTime.totalSeconds % 60;
+                        updateDisplay();
+                        if (timer.remainingTime.totalSeconds <= 0) {
+                            clearInterval(timer.interval);
+                            timer.isRunning = false;
+                            alert(`${timer.currentMode} finished!`);
+                            setMode(timer.currentMode);
+                        }
+                    }, 1000);
+                }
+            }
+            modeButtons.forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.mode)));
+            startBtn.addEventListener('click', startTimer);
+            resetBtn.addEventListener('click', () => setMode(timer.currentMode));
+            updateDisplay();
+
+            // --- TO-DO LIST (Backend-dependent) ---
+
+            const todoForm = document.getElementById('todo-form');
+            const todoInput = document.getElementById('todo-input');
+            const todoList = document.getElementById('todo-list');
+            
+            // Define the backend server URL
+            const API_URL = 'http://127.0.0.1:5000';
+
+            /**
+             * Fetches all tasks from the backend and renders them.
+             */
+            async function loadTasks() {
+                try {
+                    const response = await fetch(`${API_URL}/tasks`);
+                    if (!response.ok) throw new Error('Failed to fetch tasks');
+                    const tasks = await response.json();
+                    
+                    todoList.innerHTML = ''; // Clear existing list
+                    tasks.forEach(createTaskElement);
+                } catch (error) {
+                    console.error('Error loading tasks:', error);
+                    todoList.innerHTML = '<li>Error loading tasks. Is the backend running?</li>';
+                }
+            }
+
+            /**
+             * Creates and appends a single task element to the list.
+             * @param {object} task - The task object from the backend (e.g., {id: 1, content: "...", completed: false})
+             */
+            function createTaskElement(task) {
+                const li = document.createElement('li');
+                if (task.completed) {
+                    li.classList.add('completed');
+                }
+
+                const taskSpan = document.createElement('span');
+                taskSpan.textContent = task.content;
+                taskSpan.addEventListener('click', () => toggleTask(task.id, li));
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'X';
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.addEventListener('click', () => deleteTask(task.id, li));
+
+                li.appendChild(taskSpan);
+                li.appendChild(deleteBtn);
+                todoList.appendChild(li);
+            }
+
+            /**
+             * Handles the form submission to add a new task.
+             */
+            async function handleAddTask(e) {
+                e.preventDefault();
+                const content = todoInput.value;
+                if (content.trim() === '') return;
+
+                try {
+                    const response = await fetch(`${API_URL}/tasks`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ content: content })
+                    });
+                    if (!response.ok) throw new Error('Failed to add task');
+                    
+                    const newTask = await response.json();
+                    createTaskElement(newTask); // Add the new task to the UI
+                    todoInput.value = ''; // Clear input
+                } catch (error) {
+                    console.error('Error adding task:', error);
+                }
+            }
+
+            /**
+             * Sends a request to toggle a task's completion status.
+             * @param {number} taskId - The ID of the task to toggle.
+             * @param {HTMLElement} li - The list item element to update.
+             */
+            async function toggleTask(taskId, li) {
+                try {
+                    const response = await fetch(`${API_URL}/tasks/${taskId}/toggle`, {
+                        method: 'PUT'
+                    });
+                    if (!response.ok) throw new Error('Failed to toggle task');
+
+                    const updatedTask = await response.json();
+                    // Update the UI based on the response from the server
+                    if (updatedTask.completed) {
+                        li.classList.add('completed');
+                    } else {
+                        li.classList.remove('completed');
+                    }
+                } catch (error) {
+                    console.error('Error toggling task:', error);
+                }
+            }
+
+            /**
+             * Sends a request to delete a task.
+             * @param {number} taskId - The ID of the task to delete.
+             * @param {HTMLElement} li - The list item element to remove.
+             */
+            async function deleteTask(taskId, li) {
+                try {
+                    const response = await fetch(`${API_URL}/tasks/${taskId}`, {
+                        method: 'DELETE'
+                    });
+                    if (!response.ok) throw new Error('Failed to delete task');
+                    
+                    li.remove(); // Remove the task from the UI
+                } catch (error) {
+                    console.error('Error deleting task:', error);
+                }
+            }
+
+            // --- Initialization ---
+            
+            // Add form submit listener
+            todoForm.addEventListener('submit', handleAddTask);
+            
+            // Load all tasks from the backend when the page loads
+            loadTasks();
+        });
+    </script>
+</body>
+</html>
